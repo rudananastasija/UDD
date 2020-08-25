@@ -1,0 +1,8 @@
+package com.example.naucna.model;
+
+public class FieldDto {
+	private String operator;
+	private String field;
+	private String searchType;
+	private String searchText;
+}

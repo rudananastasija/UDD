@@ -1,0 +1,113 @@
+package com.example.naucna.config;
+
+import javax.annotation.PostConstruct;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
+import java.io.IOException;
+import org.elasticsearch.client.indices.GetIndexRequest;
+import org.elasticsearch.client.indices.CreateIndexRequest;
+import org.elasticsearch.client.indices.PutMappingRequest;
+import org.elasticsearch.client.RequestOptions;
+@Configuration
+public class ElasticSearchConfiguration {
+	@Autowired
+	RestHighLevelClient client;
+	
+	@PostConstruct
+	public void postConstruct() throws IOException {
+		//zahtjevamo index da bismo postavili mapping u njega
+		GetIndexRequest getIndexrequest = new GetIndexRequest("index_radova"); 
+		
+		if(!client.indices().exists(getIndexrequest, RequestOptions.DEFAULT)) {
+			//ukoliko ne postoji vec kreirati ga
+			CreateIndexRequest createIndexRequest = new CreateIndexRequest("index_radova"); 
+			client.indices().create(createIndexRequest, RequestOptions.DEFAULT);
+			
+			 PutMappingRequest mappingRequest = new PutMappingRequest("index_radova");
+			 
+			 XContentBuilder builder = XContentFactory.jsonBuilder();
+			 builder.startObject();
+			 {
+			     builder.startObject("properties");
+			     {
+			    	 builder.startObject("magazin");
+			         {
+			             builder.field("analyzer", "serbian"); 
+			        	 builder.field("type", "text");
+			             builder.field("store", "true");
+			         }
+			         builder.endObject();
+			         
+			         builder.startObject("sadrzaj");
+			         {    
+			        	 builder.field("analyzer", "serbian");
+				         builder.field("type", "text");
+			             builder.field("store", "true");
+			         }
+			         builder.endObject();
+				       
+			         builder.startObject("naslov");
+			         {
+			        	 builder.field("analyzer", "serbian");
+			        	 builder.field("type", "text");
+			             builder.field("store", "true");
+			         
+			         }
+			         builder.endObject();
+			         
+			    	 builder.startObject("koautori");
+			         {    builder.field("analyzer", "serbian");
+			             builder.field("type", "text");
+			             builder.field("store", "true");
+			         }
+			         builder.endObject();
+			         
+			         builder.startObject("autor");
+			         {    builder.field("analyzer", "serbian");
+			             builder.field("type", "text");
+			             builder.field("store", "true");
+			         }
+			         builder.endObject();
+			         
+			         builder.startObject("kljucneRijeci");
+			         {
+			        	 builder.field("analyzer", "serbian");
+			             builder.field("type", "text");
+			             builder.field("store", "true");
+			         }
+			         
+			         builder.endObject();
+			         
+			         builder.startObject("id");
+			         {
+			             builder.field("type", "keyword");
+			         }
+			         builder.endObject();
+			         
+			         
+			         builder.startObject("naucnaOblast");
+			         {
+
+			             builder.field("analyzer", "serbian");
+			             builder.field("type", "text");
+			             builder.field("store", "true");
+			         }
+			         builder.endObject();
+			       
+			          
+			         
+			     }
+			     builder.endObject();
+			 }
+			 builder.endObject();
+			 mappingRequest.source(builder); 
+			 client.indices().putMapping(mappingRequest, RequestOptions.DEFAULT);
+		}
+	}
+	
+	
+	
+}

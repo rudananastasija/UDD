@@ -1,0 +1,13 @@
+package com.example.naucna.model;
+
+public class TextDto {
+	private String naslov;
+	private String magazin;
+	private String sadrzaj;
+	private String koautori;
+	private String kljucneRijeci;
+	private String naucnaOblast;
+	private boolean uplaceno;
+	
+	
+}

@@ -1,0 +1,9 @@
+package com.example.naucna.model;
+
+import java.util.ArrayList;
+
+public class RecenzentUnit {
+	private String username;
+	private ArrayList<Float> lokacija = new ArrayList<>();
+	
+}

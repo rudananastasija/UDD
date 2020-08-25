@@ -1,0 +1,6 @@
+package com.example.naucna.model;
+
+public class TextDto {
+	private String naslov;
+	
+}

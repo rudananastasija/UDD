@@ -1,0 +1,266 @@
+package com.example.naucna.services;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.TaskService;
+import org.camunda.bpm.engine.task.Task;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MoreLikeThisQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.naucna.model.FieldDto;
+import com.example.naucna.model.KljucnaRijec;
+import com.example.naucna.model.Text;
+import com.example.naucna.model.TextDto;
+import com.example.naucna.model.User;
+import com.example.naucna.repositories.TextRepository;
+
+@Service
+public class PretragaService {
+	@Autowired
+	TextRepository textRepository;
+	
+	@Autowired
+	RestHighLevelClient client;
+	
+	@Autowired
+	private RuntimeService runtimeService;
+	
+	@Autowired
+	TaskService taskService;
+	
+	@Autowired
+	TextService textService;
+
+	@Autowired
+	DocHandler documentHandler;
+		
+	private BoolQueryBuilder getQueryBuilder(ArrayList<FieldDto> searchFields) {
+		BoolQueryBuilder qb = new BoolQueryBuilder();
+		
+		for(FieldDto field : searchFields) {
+			if(field.getTipUpita().equals("regularni")){
+			
+				if(field.getOperator().equals("must")) {
+					//izabrano and
+					qb.must(QueryBuilders.matchQuery(field.getTipPretrage(), field.getTekst()));
+				}else if(field.getOperator().equals("mustnot")) {
+					//izabrano and not
+					qb.mustNot(QueryBuilders.matchQuery(field.getTipPretrage(), field.getTekst()));
+				}else {
+					//izabrano or
+					qb.should(QueryBuilders.matchQuery(field.getTipPretrage(), field.getTekst()));
+				}				
+			}else {
+				
+				if(field.getOperator().equals("must")) {
+					qb.must(QueryBuilders.matchPhraseQuery(field.getTipPretrage(), field.getTekst()));
+					
+				}else if(field.getOperator().equals("mustnot")) {
+					qb.mustNot(QueryBuilders.matchPhraseQuery(field.getTipPretrage(), field.getTekst()));
+					
+				}else {
+					qb.should(QueryBuilders.matchPhraseQuery(field.getTipPretrage(), field.getTekst()));
+					
+				}		
+				
+			}
+			
+		
+		}
+		return qb;
+	}
+	
+	public ArrayList<TextDto> pretraga(ArrayList<FieldDto> searchFields) throws IOException {
+		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder(); 
+		//kreiranje highlghta 
+		HighlightBuilder highlightBuilder = new HighlightBuilder(); 
+		HighlightBuilder.Field highlightSadrzaj = new HighlightBuilder.Field("sadrzaj"); 
+		//unified highlighter koristi Luce Unified highligther i dijeli tekst u recenice
+		highlightSadrzaj.highlighterType("unified");  
+		highlightBuilder.field(highlightSadrzaj);
+		
+		sourceBuilder.highlighter(highlightBuilder);
+		
+		sourceBuilder.query(getQueryBuilder(searchFields));
+		
+		SearchRequest searchRequest = new SearchRequest();
+		searchRequest.source(sourceBuilder);
+		  
+		SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+		
+		ArrayList<TextDto> retVal = new ArrayList<>();
+		
+		//kreiranje liste rezultata
+		for (SearchHit hit : searchResponse.getHits()) {
+			
+			
+			long textId = Long.parseLong(hit.getId());
+	
+			Text text = textRepository.findOneById(textId);
+			/*
+			String kljucneRijeci = "";
+			for(KljucnaRijec kljr:text.getKljucneRijeci()) {
+				kljucneRijeci += kljr.getRijec()+",";
+			}
+			String koautori = "";
+			
+			for(User koautor:text.getKoautori()) {
+				koautori += koautor.getIme()+" "+koautor.getPrezime()+",";
+			}
+			koautori += text.getAutor().getIme()+" " + text.getAutor().getPrezime();	
+			
+			TextDto articleDTO = new TextDto(text.getNaslov(),text.getMagazin().getName(),text.getRezime(),kljucneRijeci,text.getOblast().getName(),text.isUplaceno(),textId);
+			articleDTO.setAutor(text.getAutor().getIme() + " " + text.getAutor().getPrezime());
+			articleDTO.setKoautori(koautori);
+			*/
+			Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+			String naslov =(String) sourceAsMap.get("naslov");
+			String magazin =(String)sourceAsMap.get("magazin");
+			TextDto articleDTO = new TextDto(naslov,text.getMagazin().getName(),text.getRezime(),kljucneRijeci,text.getOblast().getName(),text.isUplaceno(),textId);
+			
+			articleDTO.setOblast(((String) sourceAsMap.get("naucnaOblast")));
+
+			articleDTO.setOpenAccess(((String) sourceAsMap.get("openAccess")));
+			
+			String highlightStirng = "";
+			
+			Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+		    HighlightField highlight = highlightFields.get("sadrzaj"); 
+		    if(highlight != null) {
+		    	org.elasticsearch.common.text.Text[] fragments = highlight.fragments();  
+			    for(org.elasticsearch.common.text.Text fragment : fragments) {
+			    	highlightStirng += fragment.toString() + "... ";
+			    }
+		    	
+		    }else {
+		    	String documentContent = (String) sourceAsMap.get("sadrzaj");
+		    	highlightStirng = documentContent.substring(0, 150) + "...";
+		    
+		    }   
+		    
+		    articleDTO.setContentHighlight(highlightStirng);
+		    retVal.add(articleDTO);
+		}	
+		return retVal;
+	}
+	
+	//A more like this query that finds documents that are "like" the provided set of document(s). The documents are provided as a set of strings and/or a list of MoreLikeThisQueryBuilder.Item.
+
+	public Set<User> moreLikeThis(String task) throws IOException {
+		Task pronadjenTask = taskService.createTaskQuery().taskId(task).singleResult();
+		String processInstanceId = pronadjenTask.getProcessInstanceId();
+		String idText = (String)runtimeService.getVariable(processInstanceId,"textId");
+		Text text = textService.findById(Long.parseLong(idText));
+		
+		System.out.println(" pdf fajl od dokumenta je "+text.getFajl());
+		String[] pom = text.getFajl().split("\\\\");
+		int duzina = pom.length;
+		String fajlName = pom[duzina-1];
+		String sadrzaj = documentHandler.getText(fajlName);
+		String[] sadrzajNiz = new String[] {sadrzaj};
+		String[] fieldNiz = new String[] {"sadrzaj"};
+		
+		MoreLikeThisQueryBuilder mltqb = new MoreLikeThisQueryBuilder(fieldNiz,sadrzajNiz , null);
+		mltqb.analyzer("serbian").minDocFreq(1).maxQueryTerms(12).minimumShouldMatch("60%");
+		
+		SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder(); 
+		searchSourceBuilder.query(mltqb);
+		
+		SearchRequest searchRequest = new SearchRequest();
+		searchRequest.source(searchSourceBuilder);
+		SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+		Set<User> recenzenti = new HashSet<User>();
+		
+		if(searchResponse.getHits()== null) {
+			System.out.println("null je hits");
+		}
+		
+		for(SearchHit hit : searchResponse.getHits()) {
+			Map<String, Object> mapaRezultati = hit.getSourceAsMap();
+			//dobija username od recenzenta
+			String foundTextId = mapaRezultati.get("id").toString();
+			Text foundText = textRepository.findOneById(Long.parseLong(foundTextId));
+			System.out.println("naslov teksta je "+foundText.getNaslov());
+			
+			if(foundText.getRecenzenti().size() == 0) {
+				System.out.println("prazni recen");
+			}
+			for(User rec : foundText.getRecenzenti()) {
+				if(!recenzenti.contains(rec)) {
+					System.out.println(" more like this rec username "+rec.getUsername());
+					recenzenti.add(rec);
+					
+				}
+				
+			}
+			
+		}
+		
+		return recenzenti;
+	}
+	
+	
+
+	
+	public HashSet<String> geoprostornaPretraga(String task) throws IOException {
+		
+		Task pronadjenTask = taskService.createTaskQuery().taskId(task).singleResult();
+		String processInstanceId = pronadjenTask.getProcessInstanceId();
+		String idText = (String)runtimeService.getVariable(processInstanceId,"textId");
+		Text text = textService.findById(Long.parseLong(idText));
+		Set<User> koautori = text.getKoautori();
+		User autor = text.getAutor();
+		
+		HashSet<String> recenzenti = geoDistanceUpit(autor.getDuzina(),autor.getSirina());
+		for(User koautor : koautori) {
+			recenzenti.retainAll(geoDistanceUpit(koautor.getDuzina(),koautor.getSirina()));
+		}
+	
+		return recenzenti;
+	}
+	
+	
+	
+	private HashSet<String> geoDistanceUpit(float duzina, float sirina) throws IOException{
+		
+		BoolQueryBuilder qb = new BoolQueryBuilder();
+		qb.must(QueryBuilders.matchAllQuery());
+		qb.mustNot(QueryBuilders.geoDistanceQuery("lokacija").distance("100km").point(sirina,duzina));
+		
+		SearchSourceBuilder sourceBuilder = new SearchSourceBuilder(); 
+		sourceBuilder.query(qb);
+		
+		SearchRequest searchRequest = new SearchRequest();
+		searchRequest.source(sourceBuilder);
+
+		SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+		
+		Set<String> searchResults = new HashSet<String>();
+		
+		for(SearchHit hit : searchResponse.getHits()) {
+			Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+			//dobija username od recenzenta
+			searchResults.add(sourceAsMap.get("username").toString());
+		}
+		return (HashSet<String>) searchResults;
+		
+	}
+	
+	
+}

@@ -1,0 +1,6 @@
+package com.example.naucna.model;
+
+public class ArticleUnit {
+	private long id;
+	private string magazin;
+}

@@ -1,0 +1,71 @@
+package com.example.naucna.model;
+
+public class TextDto {
+	private String naslov;
+	private String magazin;
+	private String sadrzaj;
+	private String koautori;
+	private String kljucneRijeci;
+	private String oblast;
+	private boolean uplaceno;
+	private String rezime;
+	private long id;
+	
+	public long getId() {
+		return id;
+	}
+	public void setId(long id) {
+		this.id = id;
+	}
+	public String getNaslov() {
+		return naslov;
+	}
+	public void setNaslov(String naslov) {
+		this.naslov = naslov;
+	}
+	public String getMagazin() {
+		return magazin;
+	}
+	public void setMagazin(String magazin) {
+		this.magazin = magazin;
+	}
+	public String getSadrzaj() {
+		return sadrzaj;
+	}
+	public void setSadrzaj(String sadrzaj) {
+		this.sadrzaj = sadrzaj;
+	}
+	public String getKoautori() {
+		return koautori;
+	}
+	public void setKoautori(String koautori) {
+		this.koautori = koautori;
+	}
+	public String getKljucneRijeci() {
+		return kljucneRijeci;
+	}
+	public void setKljucneRijeci(String kljucneRijeci) {
+		this.kljucneRijeci = kljucneRijeci;
+	}
+	public String getOblast() {
+		return oblast;
+	}
+	public void setOblast(String oblast) {
+		this.oblast = oblast;
+	}
+	public boolean isUplaceno() {
+		return uplaceno;
+	}
+	public void setUplaceno(boolean uplaceno) {
+		this.uplaceno = uplaceno;
+	}
+	public String getRezime() {
+		return rezime;
+	}
+	public void setRezime(String rezime) {
+		this.rezime = rezime;
+	}
+	
+	
+	
+}

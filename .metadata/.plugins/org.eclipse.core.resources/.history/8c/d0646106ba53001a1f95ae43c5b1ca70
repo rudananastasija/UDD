@@ -1,0 +1,8 @@
+package com.example.naucna.model;
+
+public class FieldDto {
+	private String polje;
+	private String operator;
+	private String tipPretrage;
+	private String tekst;
+}

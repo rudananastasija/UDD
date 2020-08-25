@@ -1,0 +1,10 @@
+package com.example.naucna.services;
+
+import org.springframework.stereotype.Service;
+
+import com.nc.document_handlers.DocumentHandler;
+
+@Service
+public class DocHandler extends DocumentHandler {
+
+}

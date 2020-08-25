@@ -1,0 +1,64 @@
+package com.example.naucna.services;
+
+import java.io.IOException;
+import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.common.xcontent.XContentType;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.naucna.model.ArticleUnit;
+import com.example.naucna.model.KljucnaRijec;
+import com.example.naucna.model.Text;
+import com.example.naucna.model.User;
+import com.example.naucna.repositories.TextRepository;
+
+@Service
+public class IndeksiranjeService {
+	@Autowired
+	RestHighLevelClient client;
+	@Autowired
+	TextRepository textRepository;
+	@Autowired
+	DocHandler pdfHandler;
+	
+	
+		
+	public void indeksiranjeRada(Long idRada) throws IOException {
+	    System.out.println("dosao da indeksira tekst");
+		Text text = textRepository.findOneById(idRada);
+
+		System.out.println(" pdf fajl od dokumenta je "+text.getFajl());
+		ArticleUnit textUnit = new ArticleUnit();
+		
+		textUnit.setId(text.getId());
+		textUnit.setMagazin(text.getMagazin().getName());
+		textUnit.setNaslov(text.getNaslov());
+		textUnit.setNaucnaOblast(text.getOblast().getName());
+		String kljucneRijeci = "";
+		for(KljucnaRijec kljr:text.getKljucneRijeci()) {
+			kljucneRijeci += kljr.getRijec()+",";
+		}
+		String koautori = "";
+		
+		for(User koautor:text.getKoautori()) {
+			koautori +=koautor.getIme()+" "+koautor.getPrezime()+",";
+		}
+		koautori += text.getAutor().getIme()+" "+text.getAutor().getPrezime();
+		textUnit.setKoautori(koautori);
+		textUnit.setKljucneRijeci(kljucneRijeci);
+		
+		String[] pom = text.getFajl().split("\\\\");
+		int duzina = pom.length;
+		String fajlName = pom[duzina-1];
+		String sadrzaj = pdfHandler.getText(fajlName);
+		textUnit.setSadrzaj(sadrzaj);
+		
+		IndexRequest indexRequest = new IndexRequest("index_radova");
+		indexRequest.id(Long.toString(textUnit.getId()));
+		ObjectMapper mapper = new ObjectMapper();
+		indexRequest.source(mapper.writeValueAsString(textUnit), XContentType.JSON);
+		client.index(indexRequest, RequestOptions.DEFAULT);
+	}
+}
